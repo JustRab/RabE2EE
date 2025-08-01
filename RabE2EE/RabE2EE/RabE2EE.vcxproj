@@ -171,6 +171,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\CryptoHelper.cpp" />
     <ClCompile Include="src\NetworkHelper.cpp" />
     <ClCompile Include="src\RabE2EE.cpp" />
   </ItemGroup>
