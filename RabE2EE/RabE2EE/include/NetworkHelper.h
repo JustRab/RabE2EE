@@ -30,18 +30,16 @@ public:
   
   std::string
   ReceiveData(SOCKET socket);
-  
-  std::vector<unsigned char>
-  ReceiveData(SOCKET socket, int size = 0);
 
   std::vector<unsigned char>
-  ReceiveBinaryData(SOCKET socket, int size = 0);
+  ReceiveDataBinary(SOCKET socket, int size = 0);
 
   void 
   Close(SOCKET socket);
 
-private:
+public:
   SOCKET m_serverSocket = -1;
+private:
   bool m_initialized = false;
 
 };
