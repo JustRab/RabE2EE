@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "NetworkHelper.h"
 #include "CryptoHelper.h"
 #include "Prerequisites.h"
@@ -10,33 +10,42 @@ public:
 	~Client();
 
 	/**
-	 * @brief Establece conexión con el servidor.
+	 * @brief Establece conexiï¿½n con el servidor.
 	 *
-	 * @return true si la conexión fue exitosa.
-	 * @return false si ocurrió un error.
+	 * @return true si la conexiï¿½n fue exitosa.
+	 * @return false si ocurriï¿½ un error.
 	 */
-	bool
-		Connect();
-
+	bool 
+	Connect();
+	
 	/**
-	 * @brief Intercambia claves públicas con el servidor.
+	 * @brief Intercambia claves pï¿½blicas con el servidor.
 	 */
-	void
-		ExchangeKeys();
-
+	void 
+	ExchangeKeys();
+	
 	/**
-	 * @brief Cifra la clave AES con la pública del servidor y la envía.
+	 * @brief Cifra la clave AES con la pï¿½blica del servidor y la envï¿½a.
 	 */
-	void
-		SendAESKeyEncrypted();
-
+	void 
+	SendAESKeyEncrypted();
+	
 	/**
-	 * @brief Cifra un mensaje con AES y lo envía al servidor.
+	 * @brief Cifra un mensaje con AES y lo envï¿½a al servidor.
 	 *
 	 * @param message Texto plano a cifrar y enviar.
 	 */
+	void 
+	SendEncryptedMessage(const std::string& message);
+
 	void
-		SendEncryptedMessage(const std::string& message);
+	SendEncryptedMessageLoop();
+
+	void
+	StartChatLoop();
+
+	void 
+	StartReceiveLoop();     // Recibir y mostrar mensajes del servidor
 
 private:
 	std::string m_ip;

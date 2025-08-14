@@ -1,4 +1,4 @@
-#include "Server.h"
+ï»¿#include "Server.h"
 
 Server::Server(int port) : m_port(port), m_clientSock(-1) {
 	// Generar claves RSA al construir
@@ -6,9 +6,9 @@ Server::Server(int port) : m_port(port), m_clientSock(-1) {
 }
 
 Server::~Server() {
-	// Cerrar conexión con el cliente si aún está activa
+	// Cerrar conexiï¿½n con el cliente si aï¿½n estï¿½ activa
 	if (m_clientSock != -1) {
-		m_net.Close(m_clientSock);
+		m_net.close(m_clientSock);
 	}
 }
 
@@ -20,9 +20,9 @@ bool Server::Start() {
 
 
 void Server::WaitForClient() {
-	std::cout << "[Server] Esperando conexión de un cliente...\n";
+	std::cout << "[Server] Esperando conexiï¿½n de un cliente...\n";
 
-	// Aceptar conexión entrante
+	// Aceptar conexiï¿½n entrante
 	m_clientSock = m_net.AcceptClient();
 	if (m_clientSock == INVALID_SOCKET) {
 		std::cerr << "[Server] No se pudo aceptar cliente.\n";
@@ -30,15 +30,15 @@ void Server::WaitForClient() {
 	}
 	std::cout << "[Server] Cliente conectado.\n";
 
-	// 1. Enviar clave pública del servidor al cliente
+	// 1. Enviar clave pï¿½blica del servidor al cliente
 	std::string serverPubKey = m_crypto.GetPublicKeyString();
 	m_net.SendData(m_clientSock, serverPubKey);
 
-	// 2. Recibir clave pública del cliente
+	// 2. Recibir clave pï¿½blica del cliente
 	std::string clientPubKey = m_net.ReceiveData(m_clientSock);
 	m_crypto.LoadPeerPublicKey(clientPubKey);
 
-	// 3. Recibir clave AES cifrada con la pública del servidor
+	// 3. Recibir clave AES cifrada con la pï¿½blica del servidor
 	std::vector<unsigned char> encryptedAESKey = m_net.ReceiveDataBinary(m_clientSock, 256);
 	m_crypto.DecryptAESKey(encryptedAESKey);
 
@@ -47,7 +47,7 @@ void Server::WaitForClient() {
 
 
 void Server::ReceiveEncryptedMessage() {
-	// 1. Recibir el IV (vector de inicialización)
+	// 1. Recibir el IV (vector de inicializaciï¿½n)
 	std::vector<unsigned char> iv = m_net.ReceiveDataBinary(m_clientSock, 16);
 
 	// 2. Recibir el mensaje cifrado
@@ -58,4 +58,79 @@ void Server::ReceiveEncryptedMessage() {
 
 	// 4. Mostrar mensaje
 	std::cout << "[Server] Mensaje recibido: " << msg << "\n";
+}
+
+void Server::StartReceiveLoop() {
+	while (true) {
+		// 1) IV (16)
+		auto iv = m_net.ReceiveDataBinary(m_clientSock, 16);
+		if (iv.empty()) {
+			std::cout << "\n[Server] Conexiï¿½n cerrada por el cliente.\n";
+			break;
+		}
+
+		// 2) Tamaï¿½o (4 bytes network/big-endian)
+		auto len4 = m_net.ReceiveDataBinary(m_clientSock, 4);
+		if (len4.size() != 4) {
+			std::cout << "[Server] Error al recibir tamaï¿½o.\n";
+			break;
+		}
+		uint32_t nlen = 0;
+		std::memcpy(&nlen, len4.data(), 4);
+		uint32_t clen = ntohl(nlen);   // <- convierte de network a host
+
+		// 3) Ciphertext (clen bytes)
+		auto cipher = m_net.ReceiveDataBinary(m_clientSock, static_cast<int>(clen));
+		if (cipher.empty()) {
+			std::cout << "[Server] Error al recibir datos.\n";
+			break;
+		}
+
+		// 4) Descifrar y mostrar
+		std::string plain = m_crypto.AESDecrypt(cipher, iv);
+		std::cout << "\n[Cliente]: " << plain << "\nServidor: ";
+		std::cout.flush();
+	}
+}
+
+
+
+void Server::SendEncryptedMessageLoop() {
+	std::string msg;
+	while (true) {
+		std::cout << "Servidor: ";
+		std::getline(std::cin, msg);
+		if (msg == "/exit") break;
+
+		std::vector<unsigned char> iv;
+		auto cipher = m_crypto.AESEncrypt(msg, iv);
+
+		// 1) IV (16)
+		m_net.SendData(m_clientSock, iv);
+
+		// 2) Tamaï¿½o en network order (htonl)
+		uint32_t clen = static_cast<uint32_t>(cipher.size());
+		uint32_t nlen = htonl(clen);
+		std::vector<unsigned char> len4(
+			reinterpret_cast<unsigned char*>(&nlen),
+			reinterpret_cast<unsigned char*>(&nlen) + 4
+		);
+		m_net.SendData(m_clientSock, len4);
+
+		// 3) Ciphertext
+		m_net.SendData(m_clientSock, cipher);
+	}
+	std::cout << "[Server] Saliendo del chat.\n";
+}
+
+void
+Server::StartChatLoop() {
+	std::thread recvThread([&]() {
+		StartReceiveLoop();
+		});
+
+	SendEncryptedMessageLoop();
+
+	if (recvThread.joinable())
+		recvThread.join();
 }

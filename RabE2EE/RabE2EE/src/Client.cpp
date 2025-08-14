@@ -1,16 +1,16 @@
-#include "Client.h"
+ï»¿#include "Client.h"
 
 Client::Client(const std::string& ip, int port)
 	: m_ip(ip), m_port(port), m_serverSock(INVALID_SOCKET) {
 	// Genera par de claves RSA al instanciar
 	m_crypto.GenerateRSAKeys();
-	// Genera la clave AES que se usará para cifrar mensajes
+	// Genera la clave AES que se usarï¿½ para cifrar mensajes
 	m_crypto.GenerateAESKey();
 }
 
 Client::~Client() {
 	if (m_serverSock != INVALID_SOCKET) {
-		m_net.Close(m_serverSock);
+		m_net.close(m_serverSock);
 	}
 }
 
@@ -20,7 +20,7 @@ Client::Connect() {
 	bool connected = m_net.ConnectToServer(m_ip, m_port);
 	if (connected) {
 		m_serverSock = m_net.m_serverSocket; // Guardar el socket una vez conectado
-		std::cout << "[Client] Conexión establecida.\n";
+		std::cout << "[Client] Conexiï¿½n establecida.\n";
 	}
 	else {
 		std::cerr << "[Client] Error al conectar.\n";
@@ -30,15 +30,15 @@ Client::Connect() {
 
 void
 Client::ExchangeKeys() {
-	// 1. Recibe la clave pública del servidor
+	// 1. Recibe la clave pï¿½blica del servidor
 	std::string serverPubKey = m_net.ReceiveData(m_serverSock);
 	m_crypto.LoadPeerPublicKey(serverPubKey);
-	std::cout << "[Client] Clave pública del servidor recibida.\n";
+	std::cout << "[Client] Clave pï¿½blica del servidor recibida.\n";
 
-	// 2. Envía la clave pública del cliente
+	// 2. Envï¿½a la clave pï¿½blica del cliente
 	std::string clientPubKey = m_crypto.GetPublicKeyString();
 	m_net.SendData(m_serverSock, clientPubKey);
-	std::cout << "[Client] Clave pública del cliente enviada.\n";
+	std::cout << "[Client] Clave pï¿½blica del cliente enviada.\n";
 }
 
 void
@@ -51,10 +51,87 @@ Client::SendAESKeyEncrypted() {
 void
 Client::SendEncryptedMessage(const std::string& message) {
 	std::vector<unsigned char> iv;
-	std::vector<unsigned char> encryptedMsg = m_crypto.AESEncrypt(message, iv);
+	auto cipher = m_crypto.AESEncrypt(message, iv);
 
-	// Enviar IV y luego el mensaje cifrado
+	// 1) IV (16)
 	m_net.SendData(m_serverSock, iv);
-	m_net.SendData(m_serverSock, encryptedMsg);
-	std::cout << "[Client] Mensaje cifrado enviado.\n";
+
+	// 2) Tamaï¿½o (uint32_t) en network byte order
+	uint32_t clen = static_cast<uint32_t>(cipher.size());
+	uint32_t nlen = htonl(clen);
+	std::vector<unsigned char> len4(reinterpret_cast<unsigned char*>(&nlen),
+		reinterpret_cast<unsigned char*>(&nlen) + 4);
+	m_net.SendData(m_serverSock, len4);
+
+	// 3) Ciphertext
+	m_net.SendData(m_serverSock, cipher);
+}
+
+void
+Client::SendEncryptedMessageLoop() {
+	std::string msg;
+	while (true) {
+		std::cout << "Cliente: ";
+		std::getline(std::cin, msg);
+		if (msg == "/exit") break;
+
+		std::vector<unsigned char> iv;
+		auto cipher = m_crypto.AESEncrypt(msg, iv);
+
+		m_net.SendData(m_serverSock, iv);
+
+		uint32_t clen = static_cast<uint32_t>(cipher.size());
+		uint32_t nlen = htonl(clen);
+		std::vector<unsigned char> len4(reinterpret_cast<unsigned char*>(&nlen),
+			reinterpret_cast<unsigned char*>(&nlen) + 4);
+		m_net.SendData(m_serverSock, len4);
+
+		m_net.SendData(m_serverSock, cipher);
+	}
+}
+
+void
+Client::StartReceiveLoop() {
+	while (true) {
+		// 1) IV (16 bytes)
+		auto iv = m_net.ReceiveDataBinary(m_serverSock, 16);
+		if (iv.empty()) {
+			std::cout << "\n[Client] Conexiï¿½n cerrada por el servidor.\n";
+			break;
+		}
+
+		// 2) Tamaï¿½o (4 bytes, network/big-endian)
+		auto len4 = m_net.ReceiveDataBinary(m_serverSock, 4);
+		if (len4.size() != 4) {
+			std::cout << "[Client] Error al recibir tamaï¿½o.\n";
+			break;
+		}
+		uint32_t nlen = 0;
+		std::memcpy(&nlen, len4.data(), 4);
+		uint32_t clen = ntohl(nlen);
+
+		// 3) Ciphertext (clen bytes)
+		auto cipher = m_net.ReceiveDataBinary(m_serverSock, static_cast<int>(clen));
+		if (cipher.empty()) {
+			std::cout << "[Client] Error al recibir datos.\n";
+			break;
+		}
+
+		// 4) Descifrar y mostrar
+		std::string plain = m_crypto.AESDecrypt(cipher, iv);
+		std::cout << "\n[Servidor]: " << plain << "\nCliente: ";
+		std::cout.flush();
+	}
+	std::cout << "[Client] ReceiveLoop terminado.\n";
+}
+
+void Client::StartChatLoop() {
+	std::thread recvThread([&]() {
+		StartReceiveLoop();
+		});
+
+	SendEncryptedMessageLoop();
+
+	if (recvThread.joinable())
+		recvThread.join();
 }
