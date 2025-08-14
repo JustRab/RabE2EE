@@ -1,6 +1,16 @@
 ﻿#include "Prerequisites.h"
 #include "Server.h"
 #include "Client.h"
+
+/**
+ * @file RabE2EE.cpp
+ * @brief Punto de entrada de la aplicación de chat cifrado.
+ */
+
+/**
+ * @brief Ejecuta el modo servidor en el puerto especificado.
+ * @param port Puerto de escucha.
+ */
 static void runServer(int port) {
   Server s(port);
   if (!s.Start()) {
@@ -8,9 +18,14 @@ static void runServer(int port) {
     return;
   }
   s.WaitForClient(); // Intercambio de claves
-  s.StartChatLoop(); // Ahora recibe y env�a en paralelo
+  s.StartChatLoop(); // Ahora recibe y envía en paralelo
 }
 
+/**
+ * @brief Ejecuta el modo cliente conectándose al servidor dado.
+ * @param ip Dirección IP del servidor.
+ * @param port Puerto del servidor.
+ */
 static void runClient(const std::string& ip, int port) {
   Client c(ip, port);
   if (!c.Connect()) { std::cerr << "[Main] No se pudo conectar.\n"; return; }
@@ -18,10 +33,13 @@ static void runClient(const std::string& ip, int port) {
   c.ExchangeKeys();
   c.SendAESKeyEncrypted();
 
-  // ahora s�, chat en paralelo:
+  // ahora sí, chat en paralelo:
   c.StartChatLoop();
 }
 
+/**
+ * @brief Función principal que decide si se ejecuta en modo servidor o cliente.
+ */
 int main(int argc, char** argv) {
   std::string mode, ip;
   int port = 0;
@@ -66,3 +84,4 @@ int main(int argc, char** argv) {
 
   return 0;
 }
+
