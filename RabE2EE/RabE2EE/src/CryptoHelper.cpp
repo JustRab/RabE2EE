@@ -4,125 +4,169 @@
 #include "openssl/err.h"
 #include "openssl/evp.h"
 
+/**
+ * @file CryptoHelper.cpp
+ * @brief Implementación de las utilidades criptográficas RSA y AES.
+ */
 
+ /**
+  * @brief Constructor que inicializa los apuntadores de claves.
+  */
 CryptoHelper::CryptoHelper() :rsaKeyPair(nullptr), peerPublicKey(nullptr) {
-	std::memset(&aesKey, 0, sizeof(aesKey));
+  std::memset(&aesKey, 0, sizeof(aesKey));
 }
 
+/**
+ * @brief Destructor que libera las claves RSA asignadas.
+ */
 CryptoHelper::~CryptoHelper() {
-	if (rsaKeyPair) {
-		RSA_free(rsaKeyPair);
-	}
-	if (peerPublicKey) {
-		RSA_free(peerPublicKey);
-	}
+  if (rsaKeyPair) {
+    RSA_free(rsaKeyPair);
+  }
+  if (peerPublicKey) {
+    RSA_free(peerPublicKey);
+  }
 }
 
-void
+/**
+ * @brief Genera un nuevo par de claves RSA de 2048 bits.
+ */
+void 
 CryptoHelper::GenerateRSAKeys() {
-	BIGNUM* bn = BN_new();
-	BN_set_word(bn, RSA_F4);
-	rsaKeyPair = RSA_new();
-	RSA_generate_key_ex(rsaKeyPair, 2048, bn, nullptr);
-	BN_free(bn);
+  BIGNUM* bn = BN_new();
+  BN_set_word(bn, RSA_F4);
+  rsaKeyPair = RSA_new();
+  RSA_generate_key_ex(rsaKeyPair, 2048, bn, nullptr);
+  BN_free(bn);
 }
 
-std::string
+/**
+ * @brief Obtiene la clave pública en formato PEM.
+ * @return Cadena con la clave pública.
+ */
+std::string 
 CryptoHelper::GetPublicKeyString() const {
-	BIO* bio = BIO_new(BIO_s_mem());
-	PEM_write_bio_RSAPublicKey(bio, rsaKeyPair);
-	char* buffer = nullptr; // KeyData
-	size_t length = BIO_get_mem_data(bio, &buffer);
-	std::string publicKey(buffer, length);
-	BIO_free(bio);
-	return publicKey;
+  BIO* bio = BIO_new(BIO_s_mem());
+  PEM_write_bio_RSAPublicKey(bio, rsaKeyPair);
+  char* buffer = nullptr; // KeyData
+  size_t length = BIO_get_mem_data(bio, &buffer);
+  std::string publicKey(buffer, length);
+  BIO_free(bio);
+  return publicKey;
 }
 
-void
+/**
+ * @brief Carga la clave pública del par desde un string PEM.
+ * @param pemKey Clave en formato PEM.
+ */
+void 
 CryptoHelper::LoadPeerPublicKey(const std::string& pemKey) {
-	BIO* bio = BIO_new_mem_buf(pemKey.data(), static_cast<int>(pemKey.size()));
-	peerPublicKey = PEM_read_bio_RSAPublicKey(bio, nullptr, nullptr, nullptr);
-	BIO_free(bio);
-	if (!peerPublicKey) {
-		throw std::runtime_error("Failed to load peer public key: "
-			+ std::string(ERR_error_string(ERR_get_error(), nullptr)));
-	}
+  BIO* bio = BIO_new_mem_buf(pemKey.data(), static_cast<int>(pemKey.size()));
+  peerPublicKey = PEM_read_bio_RSAPublicKey(bio, nullptr, nullptr, nullptr);
+  BIO_free(bio);
+  if (!peerPublicKey) {
+    throw std::runtime_error("Failed to load peer public key: "
+      + std::string(ERR_error_string(ERR_get_error(), nullptr)));
+  }
 }
 
-void
+/**
+ * @brief Genera una clave AES-256 aleatoria.
+ */
+void 
 CryptoHelper::GenerateAESKey() {
-	RAND_bytes(aesKey, sizeof(aesKey));
+  RAND_bytes(aesKey, sizeof(aesKey));
 }
 
-std::vector<unsigned char>
+/**
+ * @brief Cifra la clave AES con la clave pública del par usando RSA.
+ * @return Clave cifrada como vector de bytes.
+ */
+std::vector<unsigned char> 
 CryptoHelper::EncryptAESKeyWithPeer() {
-	if (!peerPublicKey) {
-		throw std::runtime_error("Peer public key is not loaded.");
-	}
-	std::vector<unsigned char> encryptedKey(256);
-	int result = RSA_public_encrypt(sizeof(aesKey),
-		aesKey,
-		encryptedKey.data(),
-		peerPublicKey,
-		RSA_PKCS1_OAEP_PADDING);
-	encryptedKey.resize(result);
+  if (!peerPublicKey) {
+    throw std::runtime_error("Peer public key is not loaded.");
+  }
+  std::vector<unsigned char> encryptedKey(256);
+  int result = RSA_public_encrypt(sizeof(aesKey),
+    aesKey,
+    encryptedKey.data(),
+    peerPublicKey,
+    RSA_PKCS1_OAEP_PADDING);
+  encryptedKey.resize(result);
 
-	return encryptedKey;
+  return encryptedKey;
 }
 
-void
+/**
+ * @brief Descifra la clave AES enviada por el cliente.
+ * @param encryptedKey Clave cifrada recibida.
+ */
+void 
 CryptoHelper::DecryptAESKey(const std::vector<unsigned char>& encryptedKey) {
-	RSA_private_decrypt(encryptedKey.size(),
-		encryptedKey.data(),
-		aesKey,
-		rsaKeyPair,
-		RSA_PKCS1_OAEP_PADDING);
+  RSA_private_decrypt(encryptedKey.size(),
+    encryptedKey.data(),
+    aesKey,
+    rsaKeyPair,
+    RSA_PKCS1_OAEP_PADDING);
 }
 
-std::vector<unsigned char>
+/**
+ * @brief Cifra un mensaje usando AES-256 en modo CBC.
+ * @param plaintext Texto plano a cifrar.
+ * @param outIV Vector donde se almacenará el IV usado.
+ * @return Texto cifrado como vector de bytes.
+ */
+std::vector<unsigned char> 
 CryptoHelper::AESEncrypt(const std::string& plaintext,
-	std::vector<unsigned char>& outIV) {
-	outIV.resize(AES_BLOCK_SIZE);
-	RAND_bytes(outIV.data(), AES_BLOCK_SIZE);
+                         std::vector<unsigned char>& outIV) {
+                         outIV.resize(AES_BLOCK_SIZE);
+                         RAND_bytes(outIV.data(), AES_BLOCK_SIZE);
 
-	const EVP_CIPHER* cipher = EVP_aes_256_cbc();
-	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+  const EVP_CIPHER* cipher = EVP_aes_256_cbc();
+  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
 
-	std::vector<unsigned char> out(plaintext.size() + AES_BLOCK_SIZE); // +pad
-	int outlen1 = 0, outlen2 = 0;
+  std::vector<unsigned char> out(plaintext.size() + AES_BLOCK_SIZE); // +pad
+  int outlen1 = 0, outlen2 = 0;
 
-	EVP_EncryptInit_ex(ctx, cipher, nullptr, aesKey, outIV.data());
-	EVP_EncryptUpdate(ctx,
-		out.data(), &outlen1,
-		reinterpret_cast<const unsigned char*>(plaintext.data()),
-		static_cast<int>(plaintext.size()));
-	EVP_EncryptFinal_ex(ctx, out.data() + outlen1, &outlen2);
+  EVP_EncryptInit_ex(ctx, cipher, nullptr, aesKey, outIV.data());
+  EVP_EncryptUpdate(ctx,
+    out.data(), &outlen1,
+    reinterpret_cast<const unsigned char*>(plaintext.data()),
+    static_cast<int>(plaintext.size()));
+  EVP_EncryptFinal_ex(ctx, out.data() + outlen1, &outlen2);
 
-	out.resize(outlen1 + outlen2);
-	EVP_CIPHER_CTX_free(ctx);
-	return out;
+  out.resize(outlen1 + outlen2);
+  EVP_CIPHER_CTX_free(ctx);
+  return out;
 }
 
-std::string
+/**
+ * @brief Descifra un mensaje cifrado con AES-256-CBC.
+ * @param ciphertext Datos cifrados.
+ * @param iv Vector con el IV utilizado durante el cifrado.
+ * @return Mensaje en texto plano.
+ */
+std::string 
 CryptoHelper::AESDecrypt(const std::vector<unsigned char>& ciphertext,
-	const std::vector<unsigned char>& iv) {
-	const EVP_CIPHER* cipher = EVP_aes_256_cbc();
-	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+                         const std::vector<unsigned char>& iv) {
+                         const EVP_CIPHER* cipher = EVP_aes_256_cbc();
+                         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
 
-	std::vector<unsigned char> out(ciphertext.size());
-	int outlen1 = 0, outlen2 = 0;
+  std::vector<unsigned char> out(ciphertext.size());
+  int outlen1 = 0, outlen2 = 0;
 
-	EVP_DecryptInit_ex(ctx, cipher, nullptr, aesKey, iv.data());
-	EVP_DecryptUpdate(ctx,
-		out.data(), &outlen1,
-		ciphertext.data(),
-		static_cast<int>(ciphertext.size()));
-	if (EVP_DecryptFinal_ex(ctx, out.data() + outlen1, &outlen2) != 1) {
-		EVP_CIPHER_CTX_free(ctx);
-		return {}; // padding/key/iv incorrectos
-	}
+  EVP_DecryptInit_ex(ctx, cipher, nullptr, aesKey, iv.data());
+  EVP_DecryptUpdate(ctx,
+    out.data(), &outlen1,
+    ciphertext.data(),
+    static_cast<int>(ciphertext.size()));
+  if (EVP_DecryptFinal_ex(ctx, out.data() + outlen1, &outlen2) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return {}; // padding/key/iv incorrectos
+  }
 
-	out.resize(outlen1 + outlen2);
-	EVP_CIPHER_CTX_free(ctx);
-	return std::string(reinterpret_cast<char*>(out.data()), out.size());
+  out.resize(outlen1 + outlen2);
+  EVP_CIPHER_CTX_free(ctx);
+  return std::string(reinterpret_cast<char*>(out.data()), out.size());
 }

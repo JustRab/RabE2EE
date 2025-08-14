@@ -4,76 +4,88 @@
 #include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
 
-class
-	NetworkHelper {
-public:
-	NetworkHelper();
-	~NetworkHelper();
-
-	/**
- * @brief Inicia un socket servidor en el puerto indicado y lo deja en modo escucha.
- *
- * @param port Puerto TCP que se usar� para escuchar conexiones entrantes.
- * @return true Si el servidor se inicia correctamente.
- * @return false Si ocurre un error en cualquier paso.
+/**
+ * @file NetworkHelper.h
+ * @brief Encapsula operaciones de red basadas en WinSock.
  */
-	bool
-		StartServer(int port);
+class NetworkHelper {
+public:
+  /**
+   * @brief Inicializa la librería WinSock.
+   */
+  NetworkHelper();
 
-	/**
-	 * @brief Espera y acepta un cliente entrante.
-	 *
-	 * @return SOCKET Socket del cliente aceptado, o INVALID_SOCKET si falla.
-	 */
-	SOCKET
-		AcceptClient();
+  /**
+   * @brief Libera recursos de WinSock y cierra sockets.
+   */
+  ~NetworkHelper();
 
-	// Modo cliente
-	/**
-	 * @brief Conecta al servidor especificado por IP y puerto.
-	 *
-	 * @param ip Direcci�n IP del servidor.
-	 * @param port Puerto del servidor.
-	 * @return true Si la conexi�n fue exitosa.
-	 * @return false Si fall� la conexi�n.
-	 */
-	bool
-		ConnectToServer(const std::string& ip, int port);
+  /**
+   * @brief Inicia un socket servidor en el puerto indicado y lo deja en escucha.
+   *
+   * @param port Puerto TCP para escuchar conexiones entrantes.
+   * @return true Si el servidor se inicia correctamente.
+   * @return false Si ocurre un error en cualquier paso.
+   */
+  bool StartServer(int port);
 
-	// Enviar y recibir datos
+  /**
+   * @brief Espera y acepta un cliente entrante.
+   *
+   * @return Socket del cliente aceptado o INVALID_SOCKET si falla.
+   */
+  SOCKET AcceptClient();
 
-	/**
-	 * @brief Env�a una cadena de texto por el socket.
-	 */
-	bool
-		SendData(SOCKET socket, const std::string& data);
+  /**
+   * @brief Conecta al servidor especificado por IP y puerto.
+   *
+   * @param ip Dirección IP del servidor.
+   * @param port Puerto del servidor.
+   * @return true Si la conexión fue exitosa.
+   * @return false Si la conexión falló.
+   */
+  bool ConnectToServer(const std::string& ip, int port);
 
-	/**
-	 * @brief Env�a datos binarios (ej. AES, RSA) por el socket.
-	 */
-	bool
-		SendData(SOCKET socket, const std::vector<unsigned char>& data);
+  /**
+   * @brief Envía una cadena de texto por el socket.
+   */
+  bool SendData(SOCKET socket, const std::string& data);
 
-	/**
-	 * @brief Recibe una cadena de texto del socket.
-	 */
-	std::string
-		ReceiveData(SOCKET socket);
+  /**
+   * @brief Envía datos binarios por el socket.
+   */
+  bool SendData(SOCKET socket, const std::vector<unsigned char>& data);
 
-	std::vector<unsigned char>
-		ReceiveDataBinary(SOCKET socket, int size = 0);
+  /**
+   * @brief Recibe una cadena de texto del socket.
+   */
+  std::string ReceiveData(SOCKET socket);
 
-	void
-		close(SOCKET socket);
+  /**
+   * @brief Recibe datos binarios del socket.
+   * @param socket Socket de origen.
+   * @param size Número de bytes a leer; si es 0 se lee hasta cerrar.
+   */
+  std::vector<unsigned char> ReceiveDataBinary(SOCKET socket, int size = 0);
 
-	bool
-		SendAll(SOCKET s, const unsigned char* data, int len);
+  /**
+   * @brief Cierra un socket dado.
+   */
+  void close(SOCKET socket);
 
-	bool
-		ReceiveExact(SOCKET s, unsigned char* out, int len);
+  /**
+   * @brief Envía todos los bytes solicitados a través del socket.
+   */
+  bool SendAll(SOCKET s, const unsigned char* data, int len);
+
+  /**
+   * @brief Recibe exactamente la cantidad de bytes indicada.
+   */
+  bool ReceiveExact(SOCKET s, unsigned char* out, int len);
 
 public:
-	SOCKET m_serverSocket = -1;
+  SOCKET m_serverSocket = -1; ///< Socket principal usado por la instancia.
+
 private:
-	bool m_initialized;
+  bool m_initialized; ///< Indica si WSAStartup se ejecutó correctamente.
 };

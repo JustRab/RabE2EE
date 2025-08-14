@@ -1,6 +1,15 @@
 ﻿#include "NetworkHelper.h"
 
-NetworkHelper::NetworkHelper() : m_serverSocket(INVALID_SOCKET), m_initialized(false) {
+/**
+ * @file NetworkHelper.cpp
+ * @brief Implementación de funciones auxiliares de red.
+ */
+
+ /**
+  * @brief Constructor que inicializa la biblioteca WinSock.
+  */
+NetworkHelper::NetworkHelper() : m_serverSocket(INVALID_SOCKET),
+                                 m_initialized(false) {
   WSADATA wsaData;
   int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
   if (result != 0) {
@@ -11,6 +20,9 @@ NetworkHelper::NetworkHelper() : m_serverSocket(INVALID_SOCKET), m_initialized(f
   }
 }
 
+/**
+ * @brief Destructor que cierra sockets y limpia WinSock.
+ */
 NetworkHelper::~NetworkHelper() {
   if (m_serverSocket != INVALID_SOCKET) {
     closesocket(m_serverSocket);
@@ -21,7 +33,10 @@ NetworkHelper::~NetworkHelper() {
   }
 }
 
-bool
+/**
+ * @brief Inicia un socket servidor en el puerto indicado y lo deja en escucha.
+ */
+bool 
 NetworkHelper::StartServer(int port) {
   // Crea el socket TCP
   m_serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -30,13 +45,13 @@ NetworkHelper::StartServer(int port) {
     return false;
   }
 
-  // Configura la direcci�n del servidor (IPv4, cualquier IP local, puerto dado)
+  // Configura la dirección del servidor (IPv4, cualquier IP local, puerto dado)
   sockaddr_in serverAddress{};
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_port = htons(port);
   serverAddress.sin_addr.s_addr = INADDR_ANY;
 
-  // Asocia el socket a la direcci�n y puerto
+  // Asocia el socket a la dirección y puerto
   if (bind(m_serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
     std::cerr << "Error binding socket: " << WSAGetLastError() << std::endl;
     closesocket(m_serverSocket);
@@ -56,7 +71,10 @@ NetworkHelper::StartServer(int port) {
   return true;
 }
 
-SOCKET
+/**
+ * @brief Espera y acepta un cliente entrante.
+ */
+SOCKET 
 NetworkHelper::AcceptClient() {
   SOCKET clientSocket = accept(m_serverSocket, nullptr, nullptr);
   if (clientSocket == INVALID_SOCKET) {
@@ -67,7 +85,10 @@ NetworkHelper::AcceptClient() {
   return clientSocket;
 }
 
-bool
+/**
+ * @brief Conecta al servidor especificado por IP y puerto.
+ */
+bool 
 NetworkHelper::ConnectToServer(const std::string& ip, int port) {
   // Crea el socket TCP
   m_serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -76,7 +97,7 @@ NetworkHelper::ConnectToServer(const std::string& ip, int port) {
     return false;
   }
 
-  // Configura la direcci�n del servidor (IPv4, IP dada, puerto dado)
+  // Configura la dirección del servidor (IPv4, IP dada, puerto dado)
   sockaddr_in serverAddress{};
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_port = htons(port);
@@ -93,17 +114,26 @@ NetworkHelper::ConnectToServer(const std::string& ip, int port) {
   return true;
 }
 
-bool
+/**
+ * @brief Envía una cadena de texto por el socket.
+ */
+bool 
 NetworkHelper::SendData(SOCKET socket, const std::string& data) {
   return send(socket, data.c_str(), static_cast<int>(data.size()), 0) != SOCKET_ERROR;
 }
 
-bool
+/**
+ * @brief Envía datos binarios por el socket.
+ */
+bool 
 NetworkHelper::SendData(SOCKET socket, const std::vector<unsigned char>& data) {
   return SendAll(socket, data.data(), static_cast<int>(data.size()));
 }
 
-std::string
+/**
+ * @brief Recibe una cadena de texto del socket.
+ */
+std::string 
 NetworkHelper::ReceiveData(SOCKET socket) {
   char buffer[4096] = {};
   int len = recv(socket, buffer, sizeof(buffer), 0);
@@ -111,6 +141,9 @@ NetworkHelper::ReceiveData(SOCKET socket) {
   return std::string(buffer, len);
 }
 
+/**
+ * @brief Recibe datos binarios del socket.
+ */
 std::vector<unsigned char>
 NetworkHelper::ReceiveDataBinary(SOCKET socket, int size) {
   std::vector<unsigned char> buf(size);
@@ -118,12 +151,18 @@ NetworkHelper::ReceiveDataBinary(SOCKET socket, int size) {
   return buf;
 }
 
+/**
+ * @brief Cierra un socket dado.
+ */
 void
 NetworkHelper::close(SOCKET socket) {
   closesocket(socket);
 }
 
-bool
+/**
+ * @brief Envía todos los bytes solicitados a través del socket.
+ */
+bool 
 NetworkHelper::SendAll(SOCKET s, const unsigned char* data, int len) {
   int sent = 0;
   while (sent < len) {
@@ -134,7 +173,10 @@ NetworkHelper::SendAll(SOCKET s, const unsigned char* data, int len) {
   return true;
 }
 
-bool
+/**
+ * @brief Recibe exactamente la cantidad de bytes indicada.
+ */
+bool 
 NetworkHelper::ReceiveExact(SOCKET s, unsigned char* out, int len) {
   int recvd = 0;
   while (recvd < len) {
