@@ -3,10 +3,21 @@
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
+/**
+ * @file CryptoHelper.cpp
+ * @brief Implementación de utilidades criptográficas RSA y AES.
+ */
+
+/**
+ * @brief Inicializa los punteros de clave y limpia la clave AES.
+ */
 CryptoHelper::CryptoHelper() : rsaKeyPair(nullptr), peerPublicKey(nullptr) {
   std::memset(aesKey, 0, sizeof(aesKey));
 }
 
+/**
+ * @brief Libera las claves RSA al destruir el objeto.
+ */
 CryptoHelper::~CryptoHelper() {
   if (rsaKeyPair) {
     RSA_free(rsaKeyPair);
@@ -16,6 +27,9 @@ CryptoHelper::~CryptoHelper() {
   }
 }
 
+/**
+ * @brief Genera un par de claves RSA de 2048 bits.
+ */
 void
 CryptoHelper::GenerateRSAKeys() {
   BIGNUM* bn = BN_new();
@@ -25,6 +39,9 @@ CryptoHelper::GenerateRSAKeys() {
   BN_free(bn);
 }
 
+/**
+ * @brief Obtiene la clave pública en formato PEM.
+ */
 std::string
 CryptoHelper::GetPublicKeyString() const {
   BIO* bio = BIO_new(BIO_s_mem());
@@ -36,6 +53,11 @@ CryptoHelper::GetPublicKeyString() const {
   return publicKey;
 }
 
+/**
+ * @brief Carga la clave pública del par desde una cadena PEM.
+ *
+ * @param pemKey Cadena en formato PEM.
+ */
 void
 CryptoHelper::LoadPeerPublicKey(const std::string& pemKey) {
   BIO* bio = BIO_new_mem_buf(pemKey.data(), static_cast<int>(pemKey.size()));
@@ -45,11 +67,19 @@ CryptoHelper::LoadPeerPublicKey(const std::string& pemKey) {
     throw std::runtime_error("Failed to load peer public key" + std::string(ERR_error_string(ERR_get_error(), nullptr)));
   }
 }
+/**
+ * @brief Genera una clave AES-256 aleatoria.
+ */
 void
 CryptoHelper::GenerateAESKey() {
   RAND_bytes(aesKey, sizeof(aesKey));
 }
 
+/**
+ * @brief Cifra la clave AES con la clave pública del par.
+ *
+ * @return Clave AES cifrada.
+ */
 std::vector<unsigned char>
 CryptoHelper::EncryptAESKeyWithPeer() {
   if (!peerPublicKey) {
@@ -66,6 +96,11 @@ CryptoHelper::EncryptAESKeyWithPeer() {
   return encryptedKey;
 }
 
+/**
+ * @brief Descifra la clave AES recibida.
+ *
+ * @param encryptedKey Clave cifrada a descifrar.
+ */
 void
 CryptoHelper::DecryptAESKey(const std::vector<unsigned char>& encryptedKey) {
   RSA_private_decrypt(encryptedKey.size(),
@@ -75,8 +110,15 @@ CryptoHelper::DecryptAESKey(const std::vector<unsigned char>& encryptedKey) {
                       RSA_PKCS1_OAEP_PADDING);
 }
 
+/**
+ * @brief Cifra un texto plano usando AES en modo CBC.
+ *
+ * @param plaintext Texto a cifrar.
+ * @param outIV Vector donde se guardará el IV generado.
+ * @return Texto cifrado en bytes.
+ */
 std::vector<unsigned char>
-CryptoHelper::AESEncrypt(const std::string& plaintext, 
+CryptoHelper::AESEncrypt(const std::string& plaintext,
                          std::vector<unsigned char>& outIV) {
   outIV.resize(AES_BLOCK_SIZE);
   RAND_bytes(outIV.data(), AES_BLOCK_SIZE);
@@ -92,6 +134,13 @@ CryptoHelper::AESEncrypt(const std::string& plaintext,
   return ciphertext;
 }
 
+/**
+ * @brief Descifra un texto cifrado con AES-CBC.
+ *
+ * @param ciphertext Datos cifrados.
+ * @param iv Vector de inicialización utilizado en el cifrado.
+ * @return Texto plano resultante.
+ */
 std::string
 CryptoHelper::AESDecrypt(const std::vector<unsigned char>& ciphertext,
                          const std::vector<unsigned char>& iv) {

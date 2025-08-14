@@ -1,5 +1,13 @@
 #include "NetworkHelper.h"
 
+/**
+ * @file NetworkHelper.cpp
+ * @brief Implementación de funciones de ayuda para networking con Winsock.
+ */
+
+/**
+ * @brief Inicializa la biblioteca Winsock.
+ */
 NetworkHelper::NetworkHelper() : m_serverSocket(INVALID_SOCKET), m_initialized(false) {
   WSADATA wsaData;
   int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -12,6 +20,9 @@ NetworkHelper::NetworkHelper() : m_serverSocket(INVALID_SOCKET), m_initialized(f
   }
 }
 
+/**
+ * @brief Libera recursos de Winsock y cierra el socket principal.
+ */
 NetworkHelper::~NetworkHelper() {
   if (m_serverSocket != INVALID_SOCKET) {
     closesocket(m_serverSocket);
@@ -21,6 +32,12 @@ NetworkHelper::~NetworkHelper() {
   }
 }
 
+/**
+ * @brief Inicia un servidor TCP en el puerto especificado.
+ *
+ * @param port Puerto de escucha.
+ * @return true si el servidor se inicializó correctamente.
+ */
 bool
 NetworkHelper::StartServer(int port) {
   // Create the TCP socket
@@ -56,6 +73,11 @@ NetworkHelper::StartServer(int port) {
   return true;
 }
 
+/**
+ * @brief Espera y acepta una conexión entrante.
+ *
+ * @return Socket del cliente o INVALID_SOCKET si falla.
+ */
 SOCKET
 NetworkHelper::AcceptClient() {
   SOCKET clientSocket = accept(m_serverSocket, nullptr, nullptr);
@@ -67,6 +89,13 @@ NetworkHelper::AcceptClient() {
   return clientSocket;
 }
 
+/**
+ * @brief Conecta a un servidor usando una dirección y puerto dados.
+ *
+ * @param ip Dirección IP del servidor.
+ * @param port Puerto del servidor.
+ * @return true si la conexión fue exitosa.
+ */
 bool
 NetworkHelper::ConnectToServer(const std::string& ip, int port) {
   //Create the TCP socket
@@ -92,17 +121,37 @@ NetworkHelper::ConnectToServer(const std::string& ip, int port) {
   return true;
 }
 
+/**
+ * @brief Envía una cadena por el socket indicado.
+ *
+ * @param socket Descriptor de socket.
+ * @param data Datos a enviar.
+ * @return true si el envío fue exitoso.
+ */
 bool
 NetworkHelper::SendData(SOCKET socket, const std::string& data) {
   return send(socket, data.c_str(), static_cast<int>(data.size()), 0) != SOCKET_ERROR;
 }
 
+/**
+ * @brief Envía datos binarios por el socket indicado.
+ *
+ * @param socket Descriptor de socket.
+ * @param data Bytes a enviar.
+ * @return true si el envío fue exitoso.
+ */
 bool
 NetworkHelper::SendData(SOCKET socket, const std::vector<unsigned char>& data) {
   return send(socket, reinterpret_cast<const char*>(data.data()),
               static_cast<int>(data.size()), 0) != SOCKET_ERROR;
 }
 
+/**
+ * @brief Recibe datos de texto desde un socket.
+ *
+ * @param socket Descriptor de socket.
+ * @return Cadena recibida.
+ */
 std::string
 NetworkHelper::ReceiveData(SOCKET socket) {
   char buffer[4096] = {};
@@ -111,6 +160,13 @@ NetworkHelper::ReceiveData(SOCKET socket) {
   return std::string(buffer, len);
 }
 
+/**
+ * @brief Recibe datos binarios desde un socket.
+ *
+ * @param socket Descriptor de socket.
+ * @param size Número de bytes a leer.
+ * @return Vector con los datos recibidos.
+ */
 std::vector<unsigned char>
 NetworkHelper::ReceiveDataBinary(SOCKET socket, int size) {
   std::vector<unsigned char> buffer(size);
@@ -118,6 +174,11 @@ NetworkHelper::ReceiveDataBinary(SOCKET socket, int size) {
   return buffer;
 }
 
+/**
+ * @brief Cierra un socket.
+ *
+ * @param socket Descriptor a cerrar.
+ */
 void
 NetworkHelper::Close(SOCKET socket) {
     closesocket(socket);
